@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Users, Shuffle, Plus, X, Clock, UserCheck } from 'lucide-react';
 
 const App = () => {
-  const [participants, setParticipants] = useState(['Алексей', 'Мария', 'Дмитрий', 'Елена']);
+  const [participants, setParticipants] = useState(['Голубев Владимир', 'Климкович Лилия', 'Красноперов Кирилл', 'Макаренкова Ольга', 'Мельников Алексей', 'Никулин Антон', 'Хорошунов Юрий', 'Шишков Александр']);
   const [newParticipant, setNewParticipant] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
   const [isSpinning, setIsSpinning] = useState(false);
