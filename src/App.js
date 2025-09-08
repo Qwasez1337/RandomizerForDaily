@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Shuffle, Plus, X, Clock, UserCheck, RotateCcw, Target } from 'lucide-react';
 
 const FairnessCycleTest = () => {
@@ -15,9 +15,42 @@ const FairnessCycleTest = () => {
   const [availableInCycle, setAvailableInCycle] = useState([...allParticipants]);
   const [currentCycle, setCurrentCycle] = useState(1);
 
+  // Загрузка состояния при старте
+  useEffect(() => {
+    const saved = localStorage.getItem('dailyRandomizerCycle');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setParticipants(parsed.participants || [...allParticipants]);
+        setAvailableInCycle(parsed.availableInCycle || [...allParticipants]);
+        setCurrentCycle(parsed.currentCycle || 1);
+      } catch (e) {
+        console.log('Ошибка загрузки состояния цикла');
+      }
+    }
+  }, []);
+
+  // Сохранение состояния при изменениях
+  useEffect(() => {
+    if (availableInCycle.length > 0) {
+      const state = {
+        availableInCycle,
+        currentCycle,
+        participants
+      };
+      localStorage.setItem('dailyRandomizerCycle', JSON.stringify(state));
+    } else if (participants.length > 0) {
+      // Цикл завершен - очищаем localStorage
+      localStorage.removeItem('dailyRandomizerCycle');
+    }
+  }, [availableInCycle, currentCycle, participants]);
+
   const addParticipant = () => {
     if (newParticipant.trim() && !participants.includes(newParticipant.trim())) {
-      setParticipants([...participants, newParticipant.trim()]);
+      const newName = newParticipant.trim();
+      setParticipants(prev => [...prev, newName]);
+      // Автоматически включаем нового участника в текущий цикл
+      setAvailableInCycle(prev => [...prev, newName]);
       setNewParticipant('');
     }
   };
@@ -35,6 +68,9 @@ const FairnessCycleTest = () => {
     setParticipants([...allParticipants]);
     setSelectedLeader('');
     setAvailableInCycle([...allParticipants]);
+    setCurrentCycle(1);
+    // Очищаем localStorage при полном сбросе
+    localStorage.removeItem('dailyRandomizerCycle');
   };
   
   const toggleParticipantInCycle = (participant) => {
