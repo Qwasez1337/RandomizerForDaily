@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Shuffle, Plus, X, Clock, UserCheck, RotateCcw } from 'lucide-react';
+import { Users, Shuffle, Plus, X, Clock, UserCheck, RotateCcw, Target } from 'lucide-react';
 
-const App = () => {
-  const allParticipants = ['Голубев Владимир', 'Климкович Лилия', 'Красноперов Кирилл', 'Макаренкова Ольга', 'Мельников Алексей', 'Никулин Антон', 'Хорошунов Юрий', 'Шишков Александр'];
+const FairnessCycleTest = () => {
+  const allParticipants = ['Голубев Владимир', 'Полозков Андрей', 'Климкович Лилия', 'Красноперов Кирилл', 'Макаренкова Ольга', 'Мельников Алексей', 'Никулин Антон', 'Хорошунов Юрий', 'Шишков Александр'];
   
   const [participants, setParticipants] = useState([...allParticipants]);
   const [newParticipant, setNewParticipant] = useState('');
@@ -10,6 +10,10 @@ const App = () => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  
+  // Состояние цикла справедливости
+  const [availableInCycle, setAvailableInCycle] = useState([...allParticipants]);
+  const [currentCycle, setCurrentCycle] = useState(1);
 
   const addParticipant = () => {
     if (newParticipant.trim() && !participants.includes(newParticipant.trim())) {
@@ -23,44 +27,110 @@ const App = () => {
     if (selectedLeader === name) {
       setSelectedLeader('');
     }
+    // Обновляем доступных в цикле
+    setAvailableInCycle(prev => prev.filter(p => p !== name));
   };
 
   const restoreAllParticipants = () => {
     setParticipants([...allParticipants]);
     setSelectedLeader('');
+    setAvailableInCycle([...allParticipants]);
+  };
+  
+  const toggleParticipantInCycle = (participant) => {
+    setAvailableInCycle(prev => {
+      if (prev.includes(participant)) {
+        // Убираем из цикла
+        return prev.filter(p => p !== participant);
+      } else {
+        // Добавляем в цикл
+        return [...prev, participant];
+      }
+    });
+  };
+
+  // Криптографически стойкий рандом
+  const cryptoRandom = () => {
+    const array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    return array[0] / (0xffffffff + 1);
+  };
+
+  // Fisher-Yates shuffle для максимальной случайности
+  const shuffleAndSelect = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(cryptoRandom() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled[0];
   };
 
   const selectRandomLeader = () => {
     if (participants.length === 0) return;
     
+    // Логика цикла: выбираем только из доступных в текущем цикле
+    const currentAvailable = availableInCycle.filter(p => participants.includes(p));
+    
+    // Если в цикле никого не осталось - новый цикл
+    if (currentAvailable.length === 0) {
+      // Начинаем новый цикл со всеми участниками
+      setAvailableInCycle([...participants]);
+      setCurrentCycle(prev => prev + 1);
+      
+      // Выбираем из нового полного списка без анимации (мгновенно)
+      const leader = shuffleAndSelect(participants);
+      setSelectedLeader(leader);
+      
+      // Убираем выбранного из нового цикла
+      setAvailableInCycle(participants.filter(p => p !== leader));
+      
+      // Добавляем в историю
+      const now = new Date();
+      const historyEntry = {
+        leader,
+        date: now.toLocaleDateString('ru-RU'),
+        time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        cycle: currentCycle + 1
+      };
+      setHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
+      return;
+    }
+    
     setIsSpinning(true);
     setSelectedLeader('');
     
+    // Простая анимация с несколькими случайными показами
     let counter = 0;
     const spinInterval = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * participants.length);
-      setSelectedLeader(participants[randomIndex]);
+      // Показываем случайных участников для эффекта (из доступных)
+      const tempIndex = Math.floor(cryptoRandom() * currentAvailable.length);
+      setSelectedLeader(currentAvailable[tempIndex]);
       counter++;
       
-      if (counter >= 10) {
+      if (counter >= 6) {
         clearInterval(spinInterval);
         
         setTimeout(() => {
-          const finalIndex = Math.floor(Math.random() * participants.length);
-          const leader = participants[finalIndex];
+          // Финальный выбор из доступных в цикле
+          const leader = shuffleAndSelect(currentAvailable);
           setSelectedLeader(leader);
           setIsSpinning(false);
+          
+          // Убираем выбранного из доступных в цикле
+          setAvailableInCycle(prev => prev.filter(p => p !== leader));
           
           const now = new Date();
           const historyEntry = {
             leader,
             date: now.toLocaleDateString('ru-RU'),
-            time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+            time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            cycle: currentCycle
           };
           setHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-        }, 500);
+        }, 300);
       }
-    }, 100);
+    }, 150);
   };
 
   const handleKeyPress = (e) => {
@@ -72,10 +142,10 @@ const App = () => {
   return (
     <div className="max-w-2xl mx-auto p-4 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
       <div className="bg-white rounded-xl shadow-lg p-6">
-        {/* Компактный заголовок */}
+        {/* Заголовок */}
         <div className="text-center mb-5">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-            <Users className="w-6 h-6 text-blue-600" />
+            <Target className="w-6 h-6 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-1">Рандомайзер дейли</h1>
           <p className="text-sm text-gray-600">Выберите ведущего для сегодняшнего дейли</p>
@@ -115,26 +185,50 @@ const App = () => {
             </button>
           </div>
 
-          {/* Сетка участников - как раньше */}
+          {/* Сетка участников с кликабельной подсветкой */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {participants.map((participant, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between bg-gray-50 px-4 py-2 rounded-lg"
-              >
-                <span className="text-gray-800">{participant}</span>
-                <button
-                  onClick={() => removeParticipant(participant)}
-                  className="text-red-500 hover:text-red-700 transition-colors"
+            {participants.map((participant, index) => {
+              const isAvailableInCycle = availableInCycle.includes(participant);
+              return (
+                <div
+                  key={index}
+                  onClick={() => toggleParticipantInCycle(participant)}
+                  className={`flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                    isAvailableInCycle 
+                      ? 'bg-green-100 border-2 border-green-300 hover:bg-green-200' 
+                      : 'bg-gray-100 border-2 border-gray-300 hover:bg-gray-200'
+                  }`}
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center pointer-events-none">
+                    <div className={`w-3 h-3 rounded-full mr-3 ${
+                      isAvailableInCycle ? 'bg-green-500' : 'bg-gray-400'
+                    }`}></div>
+                    <span className="text-gray-800">{participant}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeParticipant(participant);
+                    }}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
           
           {participants.length === 0 && (
             <p className="text-gray-500 text-center py-3 text-sm">Добавьте участников команды</p>
+          )}
+          
+          {participants.length > 0 && (
+            <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-xs text-blue-700 text-center">
+                💡 Кликните на участника чтобы включить/исключить из списка выбора
+              </p>
+            </div>
           )}
         </div>
 
@@ -167,7 +261,7 @@ const App = () => {
           )}
         </div>
 
-        {/* Компактная история */}
+        {/* Компактная история с циклами */}
         {history.length > 0 && (
           <div className="border-t pt-4">
             <button
@@ -182,8 +276,17 @@ const App = () => {
               <div className="space-y-1">
                 {history.map((entry, index) => (
                   <div key={index} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-md text-xs">
-                    <span className="font-medium">{entry.leader}</span>
-                    <span className="text-gray-500">{entry.date} в {entry.time}</span>
+                    <div className="flex items-center">
+                      <span className="font-medium">{entry.leader}</span>
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                        entry.cycle === 1 ? 'bg-blue-100 text-blue-800' :
+                        entry.cycle === 2 ? 'bg-green-100 text-green-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        Ц{entry.cycle}
+                      </span>
+                    </div>
+                    <div className="text-gray-500">{entry.date} в {entry.time}</div>
                   </div>
                 ))}
               </div>
@@ -195,4 +298,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default FairnessCycleTest;
