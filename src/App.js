@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Shuffle, Plus, X, Clock, UserCheck, RotateCcw, Target } from 'lucide-react';
 
 const FairnessCycleTest = () => {
-  const allParticipants = ['Голубев Владимир', 'Полозков Андрей', 'Климкович Лилия', 'Макаренкова Ольга', 'Шишков Александр', 'Грицюк Никита'];
+  const allParticipants = ['Голубев Владимир', 'Полозков Андрей', 'Климкович Лилия', 'Макаренкова Ольга', 'Шишков Александр', 'Грицюк Никита', 'Никитина Елена'];
   
   const [participants, setParticipants] = useState([...allParticipants]);
   const [newParticipant, setNewParticipant] = useState('');
